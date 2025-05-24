@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <Navbar v-if="showNavbar" />
-    <v-main class="pt-12">
+    <v-main>
       <router-view />
     </v-main>
   </v-app>
@@ -18,3 +18,11 @@ const showNavbar = computed(() => {
   return !['/login', '/signup'].includes(route.path)
 })
 </script>
+
+<style scoped>
+
+.v-container {
+  padding: 0 !important;
+}
+
+</style>

@@ -1,5 +1,5 @@
 <template>
-    <v-container>
+    <v-container fluid>
       <Signup />
     </v-container>
   </template>
@@ -8,3 +8,11 @@
   import Signup from '../components/Signup.vue'
   </script>
   
+<style scoped>
+
+.v-container {
+  min-width: 100% !important;
+  margin: auto;
+}
+
+</style>
