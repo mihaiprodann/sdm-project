@@ -54,25 +54,83 @@
           <v-icon class="mr-2" color="primary">mdi-account-switch</v-icon>
           Reviewer Allocation System
         </v-card-title>
-        
+
         <v-card-text class="card-content">
           <div class="allocation-info">
             <div class="info-item">
-              <v-icon class="info-icon" color="success">mdi-information</v-icon>
-              <span>Each paper will be assigned to 2 reviewers automatically</span>
+              <v-icon class="info-icon" color="primary">mdi-file-document-alert</v-icon>
+              <span><strong>{{ unallocatedPapers }}</strong> papers not yet allocated</span>
             </div>
             <div class="info-item">
-              <v-icon class="info-icon" color="warning">mdi-alert</v-icon>
-              <span>Minimum 2 reviewers required for allocation</span>
+              <v-icon class="info-icon" color="primary">mdi-account-alert</v-icon>
+              <span><strong>{{ availableReviewers }}</strong> reviewers available</span>
+            </div>
+            <div class="info-item" v-if="unallocatedPapers === 0">
+              <v-icon class="info-icon" color="orange">mdi-alert</v-icon>
+              <span>No new papers left to allocate.</span>
+            </div>
+            <div class="info-item" v-if="availableReviewers < 2">
+              <v-icon class="info-icon" color="red">mdi-alert-circle</v-icon>
+              <span>At least 2 reviewers are required for allocation.</span>
             </div>
           </div>
 
+          
+
           <div class="allocation-actions">
+            <v-btn
+              class="allocate-btn mr-5"
+              color="secondary"
+              @click="showStatsModal = true"
+              size="large"
+              variant="outlined"
+            >
+              <v-icon start>mdi-chart-bar</v-icon>
+              View Stats
+            </v-btn>
+
+            <v-dialog v-model="showStatsModal" max-width="900px">
+              <v-card>
+                <v-card-title class="text-h6">
+                  <v-icon class="mr-2">mdi-table-eye</v-icon>
+                  Reviewer Assignment Stats
+                </v-card-title>
+                <v-card-text>
+                  <v-table v-if="allocationsTable.length">
+                    <thead>
+                      <tr>
+                        <th class="text-left">Paper Title</th>
+                        <th class="text-left">Email</th>
+                        <th class="text-left">Score</th>
+                        <th class="text-left">Comments</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="entry in allocationsTable" :key="entry.paper + '-' + entry.email">
+                        <td>{{ entry.paper }}</td>
+                        <td>{{ entry.email }}</td>
+                        <td>{{ entry.score ?? '—' }}</td>
+                        <td>{{ entry.comment ?? '—' }}</td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                  <v-alert v-else type="info" class="mt-4">
+                    No assignment data available.
+                  </v-alert>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn color="primary" text @click="showStatsModal = false">Close</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+
             <v-btn 
               class="allocate-btn"
               color="primary" 
               @click="allocate" 
               :loading="loading"
+              :disabled="loading || unallocatedPapers === 0 || availableReviewers < 2"
               size="large"
               variant="elevated"
             >
@@ -108,6 +166,7 @@
         </v-card-text>
       </v-card>
 
+      <!-- Allocation Results Table -->
       <v-card v-if="allocationResults.length" class="mt-4" elevation="2">
         <v-card-title class="text-h6">
           Allocation Results
@@ -134,14 +193,13 @@
         </v-card-text>
       </v-card>
 
-
       <!-- Recent Activity -->
       <v-card class="activity-card mt-10" elevation="2">
         <v-card-title class="card-header">
           <v-icon class="mr-2" color="info">mdi-history</v-icon>
           Recent Activity
         </v-card-title>
-        
+
         <v-card-text>
           <div class="activity-list">
             <div class="activity-item" v-if="lastAllocation">
@@ -153,7 +211,7 @@
                 <div class="activity-time">{{ formatTime(lastAllocation) }}</div>
               </div>
             </div>
-            
+
             <div class="activity-item empty" v-else>
               <div class="activity-icon neutral">
                 <v-icon size="16">mdi-information</v-icon>
@@ -167,14 +225,13 @@
         </v-card-text>
       </v-card>
     </v-container>
-
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { db } from '../firebase'
-import { get, ref as dbRef, set } from 'firebase/database'
+import { get, ref as dbRef, push } from 'firebase/database'
 
 const loading = ref(false)
 const success = ref('')
@@ -182,6 +239,52 @@ const error = ref('')
 const lastAllocation = ref(null)
 
 const allocationResults = ref([])
+const unallocatedPapers = ref(0)
+const availableReviewers = ref(0)
+
+const showStatsModal = ref(false)
+const allocationsTable = ref([])
+
+const loadAllocationsTable = async () => {
+  allocationsTable.value = []
+
+  const [papersSnap, usersSnap, reviewsSnap, allocationsSnap] = await Promise.all([
+    get(dbRef(db, 'papers')),
+    get(dbRef(db, 'users')),
+    get(dbRef(db, 'reviews')),
+    get(dbRef(db, 'allocationsHistory'))
+  ])
+
+  const papers = papersSnap.val() || {}
+  const users = usersSnap.val() || {}
+  const reviews = reviewsSnap.val() || {}
+  const allocationsHistories = allocationsSnap.val() || {}
+
+  const latestAlloc = Object.values(allocationsHistories).slice(-1)[0]?.allocations || {}
+
+  for (const paperId in latestAlloc) {
+    const paper = papers[paperId]
+    const paperTitle = paper?.title || paperId
+    const assignedReviewerIds = latestAlloc[paperId]
+
+    assignedReviewerIds.forEach((reviewerId) => {
+      const reviewer = users[reviewerId] || {}
+      const email = reviewer.email || reviewerId
+      const review = reviews[paperId]?.[reviewerId] || {}
+
+      allocationsTable.value.push({
+        paper: paperTitle,
+        email,
+        score: review.score ?? null,
+        comment: review.comment ?? null
+      })
+    })
+  }
+}
+
+watch(showStatsModal, (val) => {
+  if (val) loadAllocationsTable()
+})
 
 const stats = ref({
   papers: 0,
@@ -198,17 +301,24 @@ const loadStats = async () => {
     const [papersSnap, usersSnap, allocationsSnap] = await Promise.all([
       get(dbRef(db, 'papers')),
       get(dbRef(db, 'users')),
-      get(dbRef(db, 'allocations'))
+      get(dbRef(db, 'allocationsHistory'))
     ])
 
     const papers = papersSnap.val() || {}
     const users = usersSnap.val() || {}
-    const allocations = allocationsSnap.val() || {}
+    const allocationsHistory = allocationsSnap.val() || {}
+
+    const latestAlloc = Object.values(allocationsHistory).slice(-1)[0]?.allocations || {}
+    const allocatedPaperIds = new Set(Object.keys(latestAlloc))
+    const allPaperIds = Object.keys(papers)
+
+    unallocatedPapers.value = allPaperIds.filter(id => !allocatedPaperIds.has(id)).length
+    availableReviewers.value = Object.values(users).filter(u => u.role === 'reviewer').length
 
     stats.value = {
-      papers: Object.keys(papers).length,
-      reviewers: Object.values(users).filter(u => u.role === 'reviewer').length,
-      allocations: Object.keys(allocations).length
+      papers: allPaperIds.length,
+      reviewers: availableReviewers.value,
+      allocations: Object.keys(allocationsHistory).length
     }
   } catch (e) {
     console.error('Error loading stats:', e)
@@ -222,13 +332,16 @@ const allocate = async () => {
   allocationResults.value = []
 
   try {
-    const [papersSnap, usersSnap] = await Promise.all([
+    const [papersSnap, usersSnap, allocationsSnap] = await Promise.all([
       get(dbRef(db, 'papers')),
-      get(dbRef(db, 'users'))
+      get(dbRef(db, 'users')),
+      get(dbRef(db, 'allocationsHistory'))
     ])
 
     const papers = papersSnap.val() || {}
     const users = usersSnap.val() || {}
+    const allocationsHistory = allocationsSnap.val() || {}
+    const latestAlloc = Object.values(allocationsHistory).slice(-1)[0]?.allocations || {}
 
     const reviewers = Object.entries(users)
       .filter(([_, u]) => u.role === 'reviewer')
@@ -248,6 +361,8 @@ const allocate = async () => {
     const results = []
 
     for (const paperId in papers) {
+      if (latestAlloc[paperId]) continue // skip already allocated papers
+
       const paper = papers[paperId]
       const shuffled = [...reviewers].sort(() => 0.5 - Math.random())
       const selected = shuffled.slice(0, 2)
@@ -267,7 +382,15 @@ const allocate = async () => {
       })
     }
 
-    await set(dbRef(db, 'allocations'), allocations)
+    if (Object.keys(allocations).length > 0) {
+      const combinedAllocations = { ...latestAlloc, ...allocations }
+
+      await push(dbRef(db, 'allocationsHistory'), {
+        timestamp: new Date().toISOString(),
+        allocations: combinedAllocations
+      })
+    }
+
 
     allocationResults.value = results
     success.value = 'Reviewers allocated successfully!'
@@ -290,8 +413,6 @@ const formatTime = (timestamp) => {
   return date.toLocaleString()
 }
 </script>
-
-
 
 <style scoped>
 .organizer-dashboard {
