@@ -77,20 +77,6 @@
             <span class="text-caption text-medium-emphasis px-4">OR</span>
           </v-divider>
   
-          <!-- Social Login Options -->
-          <div class="d-flex flex-column gap-3 mb-6">
-            <v-btn
-              variant="outlined"
-              size="large"
-              block
-              class="text-none"
-              rounded="lg"
-              prepend-icon="mdi-google"
-            >
-              Continue with Google
-            </v-btn>
-          </div>
-  
           <!-- Sign Up Link -->
           <div class="text-center">
             <span class="text-body-2 text-medium-emphasis">Don't have an account? </span>
