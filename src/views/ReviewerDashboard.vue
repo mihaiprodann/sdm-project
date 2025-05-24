@@ -1,6 +1,5 @@
 <template>
-  <v-container>
-    <h2>Reviewer Dashboard</h2>
+  <v-container fluid>
     <AssignedPapers />
   </v-container>
 </template>
