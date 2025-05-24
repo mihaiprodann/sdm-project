@@ -22,13 +22,11 @@
   import { auth, db } from '../firebase'
   import { createUserWithEmailAndPassword } from 'firebase/auth'
   import { ref as dbRef, set } from 'firebase/database'
-  import { RouterLink } from 'vue-router'
-
   
   const email = ref('')
   const password = ref('')
   const role = ref('')
-  const roles = ['author', 'reviewer', 'organizer']
+  const roles = ['author', 'reviewer']
   const error = ref('')
   
   const register = () => {

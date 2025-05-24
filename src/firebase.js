@@ -6,7 +6,7 @@ import { getDatabase } from "firebase/database"
 const firebaseConfig = {
   apiKey: "AIzaSyAhSxnq1g-Njqsp81SUfsgitEYSG_YH0CU",
   authDomain: "e-conference-5dbec.firebaseapp.com",
-  databaseURL: "https://e-conference-5dbec-default-rtdb.europe-west1.firebasedatabase.app"
+  databaseURL: "https://e-conference-5dbec-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "e-conference-5dbec",
   storageBucket: "e-conference-5dbec.appspot.com",
   messagingSenderId: "202916124909",

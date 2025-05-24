@@ -41,10 +41,11 @@
             const userData = snap.val()
 
             if (userData?.role) {
-                router.push('/dashboard')
+                router.push(`/dashboard/${userData.role}`)
             } else {
                 error.value = 'No role found for user.'
             }
+
         })
         .catch(err => {
             error.value = err.message
