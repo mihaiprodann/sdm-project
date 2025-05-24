@@ -278,22 +278,7 @@
                         </v-chip>
                       </div>
                     </v-col>
-                    <v-col cols="12" md="6">
-                      <div class="score-distribution">
-                        <div class="text-body-2 text-medium-emphasis mb-2">Score Distribution:</div>
-                        <div class="d-flex align-center gap-1">
-                          <span
-                            v-for="score in [1, 2, 3, 4, 5]"
-                            :key="score"
-                            class="score-dot"
-                            :class="{ 'active': paper.reviews.some(r => r.score === score)}"
-                            :style="{ backgroundColor: getScoreColor(score) }"
-                          >
-                            {{ score }}
-                          </span>
-                        </div>
-                      </div>
-                    </v-col>
+                    
                   </v-row>
                 </v-card-text>
               </v-card>

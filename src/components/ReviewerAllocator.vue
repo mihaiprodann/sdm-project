@@ -108,8 +108,35 @@
         </v-card-text>
       </v-card>
 
+      <v-card v-if="allocationResults.length" class="mt-4" elevation="2">
+        <v-card-title class="text-h6">
+          Allocation Results
+        </v-card-title>
+        <v-card-text>
+          <v-table>
+            <thead>
+              <tr>
+                <th class="text-left">Paper Title</th>
+                <th class="text-left">Author</th>
+                <th class="text-left">Reviewer 1 (email)</th>
+                <th class="text-left">Reviewer 2 (email)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="result in allocationResults" :key="result.title">
+                <td>{{ result.title }}</td>
+                <td>{{ result.author }}</td>
+                <td>{{ result.reviewers[0] || 'N/A' }}</td>
+                <td>{{ result.reviewers[1] || 'N/A' }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+      </v-card>
+
+
       <!-- Recent Activity -->
-      <v-card class="activity-card" elevation="2">
+      <v-card class="activity-card mt-10" elevation="2">
         <v-card-title class="card-header">
           <v-icon class="mr-2" color="info">mdi-history</v-icon>
           Recent Activity
@@ -140,6 +167,7 @@
         </v-card-text>
       </v-card>
     </v-container>
+
   </div>
 </template>
 
@@ -152,6 +180,8 @@ const loading = ref(false)
 const success = ref('')
 const error = ref('')
 const lastAllocation = ref(null)
+
+const allocationResults = ref([])
 
 const stats = ref({
   papers: 0,
@@ -189,6 +219,7 @@ const allocate = async () => {
   loading.value = true
   error.value = ''
   success.value = ''
+  allocationResults.value = []
 
   try {
     const [papersSnap, usersSnap] = await Promise.all([
@@ -201,7 +232,11 @@ const allocate = async () => {
 
     const reviewers = Object.entries(users)
       .filter(([_, u]) => u.role === 'reviewer')
-      .map(([uid]) => uid)
+      .map(([uid, u]) => ({
+        id: uid,
+        name: u.name || uid,
+        email: u.email || ''
+      }))
 
     if (reviewers.length < 2) {
       error.value = 'You need at least 2 reviewers to allocate.'
@@ -210,22 +245,38 @@ const allocate = async () => {
     }
 
     const allocations = {}
+    const results = []
+
     for (const paperId in papers) {
+      const paper = papers[paperId]
       const shuffled = [...reviewers].sort(() => 0.5 - Math.random())
-      allocations[paperId] = shuffled.slice(0, 2)
+      const selected = shuffled.slice(0, 2)
+
+      allocations[paperId] = selected.map(r => r.id)
+
+      const author =
+        users[paper.mainAuthor]?.name ||
+        users[paper.mainAuthor]?.email ||
+        paper.mainAuthor ||
+        'Unknown'
+
+      results.push({
+        title: paper.title || paperId,
+        author,
+        reviewers: selected.map(r => r.email)
+      })
     }
 
     await set(dbRef(db, 'allocations'), allocations)
+
+    allocationResults.value = results
     success.value = 'Reviewers allocated successfully!'
     lastAllocation.value = new Date().toISOString()
-    
-    // Refresh stats
     await loadStats()
   } catch (e) {
     error.value = 'Error: ' + e.message
   } finally {
     loading.value = false
-
     setTimeout(() => {
       success.value = ''
       error.value = ''
@@ -239,6 +290,8 @@ const formatTime = (timestamp) => {
   return date.toLocaleString()
 }
 </script>
+
+
 
 <style scoped>
 .organizer-dashboard {
