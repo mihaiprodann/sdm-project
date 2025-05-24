@@ -1,5 +1,7 @@
 <template>
-  <Login />
+  <v-container fluid>
+    <Login />
+  </v-container>
 </template>
 
 <script setup>

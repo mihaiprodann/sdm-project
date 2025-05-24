@@ -1,6 +1,5 @@
 <template>
-  <v-container>
-    <h2>Organizer Dashboard</h2>
+  <v-container fluid>
     <ReviewerAllocator />
   </v-container>
 </template>
